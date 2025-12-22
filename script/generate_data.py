@@ -9,8 +9,8 @@ fake = Faker()
 # --- CONFIGURATION ---
 NUM_ROWS = 1000
 # This path matches the volume map in your docker-compose.yml
-OUTPUT_FILE = '/var/jenkins_home/workspace/shared_data/sales_data.csv'
-
+#OUTPUT_FILE = '/var/jenkins_home/workspace/shared_data/sales_data.csv'
+OUTPUT_FILE = '/opt/shared_data/sales_data.csv'
 # Ensure the directory exists (in case Jenkins cleared the workspace)
 os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 

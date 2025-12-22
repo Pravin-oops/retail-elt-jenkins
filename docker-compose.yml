@@ -28,6 +28,7 @@ services:
     volumes:
       # Persist Jenkins data so you don't lose your setup
       - ./jenkins_home:/var/jenkins_home
+      - ./data:/opt/shared_data  # Shared data folder for ETL files
     networks:
       - etl-network
     depends_on:

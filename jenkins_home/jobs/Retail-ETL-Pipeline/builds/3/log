@@ -1,0 +1,31 @@
+Started by user [8mha:////4CjuosyK6QqnjKVkqScEShcto7YZkUz5c53yqgdikXLZAAAAnR+LCAAAAAAAAP9b85aBtbiIQTGjNKU4P08vOT+vOD8nVc83PyU1x6OyILUoJzMv2y+/JJUBAhiZGBgqihhk0NSjKDWzXb3RdlLBUSYGJk8GtpzUvPSSDB8G5tKinBIGIZ+sxLJE/ZzEvHT94JKizLx0a6BxUmjGOUNodHsLgAw2oBn6pcWpRfoFRYllmXm5icUlqUUAqs+ZdscAAAA=[0mPravin
+Running as SYSTEM
+Building in workspace /var/jenkins_home/workspace/Retail-ETL-Pipeline
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/Retail-ETL-Pipeline/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url https://github.com/Pravin-oops/retail-etl-project # timeout=10
+Using shallow fetch with depth 1
+Fetching upstream changes from https://github.com/Pravin-oops/retail-etl-project
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress --depth=1 -- https://github.com/Pravin-oops/retail-etl-project +refs/heads/*:refs/remotes/origin/* # timeout=20
+ > git rev-parse refs/remotes/origin/master^{commit} # timeout=10
+Checking out Revision ffb1593c253f352835103cf5261cf4db50679215 (refs/remotes/origin/master)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f ffb1593c253f352835103cf5261cf4db50679215 # timeout=10
+Commit message: "Python script updated to use docker path"
+ > git rev-list --no-walk 7984514fb43d46b30794fac9d8f83168a5227088 # timeout=10
+[Retail-ETL-Pipeline] $ /bin/sh -xe /tmp/jenkins10688794967416130839.sh
++ echo --- Starting Data Generation ---
+--- Starting Data Generation ---
++ python3 script/generate_data.py
+Starting data generation: 1000 rows...
+Success! Generated 1000 rows at: /var/jenkins_home/workspace/shared_data/sales_data.csv
++ ls -l /var/jenkins_home/workspace/shared_data/
+total 72
+-rw-r--r-- 1 root root 70027 Dec 22 11:25 sales_data.csv
++ echo --- Data Generation Complete ---
+--- Data Generation Complete ---
+Finished: SUCCESS
