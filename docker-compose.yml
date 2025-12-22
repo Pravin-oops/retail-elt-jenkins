@@ -19,7 +19,7 @@ services:
 
   # --- Service 2: The Automation Server ---
   jenkins:
-    image: jenkins/jenkins:lts
+    build: .
     container_name: retail_jenkins
     user: root # Run as root to allow installing SQLPlus later easily
     ports:

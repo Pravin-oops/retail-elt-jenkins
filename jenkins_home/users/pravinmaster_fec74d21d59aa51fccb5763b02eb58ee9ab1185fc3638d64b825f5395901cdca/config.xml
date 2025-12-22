@@ -2,7 +2,7 @@
 <user>
   <version>10</version>
   <id>pravinmaster</id>
-  <fullName>Pravin P</fullName>
+  <fullName>Pravin</fullName>
   <properties>
     <io.jenkins.plugins.thememanager.ThemeUserProperty plugin="theme-manager@327.v780d7096ec29"/>
     <jenkins.console.ConsoleUrlProviderUserProperty/>
@@ -33,7 +33,7 @@
       <collapsed/>
     </hudson.model.PaneStatusProperties>
     <jenkins.security.seed.UserSeedProperty>
-      <seed>07183a302ea32466</seed>
+      <seed>98c95f279c9d5893</seed>
     </jenkins.security.seed.UserSeedProperty>
     <hudson.search.UserSearchProperty>
       <insensitiveSearch>true</insensitiveSearch>
@@ -43,7 +43,7 @@
       <flags/>
     </jenkins.model.experimentalflags.UserExperimentalFlagsProperty>
     <hudson.security.HudsonPrivateSecurityRealm_-Details>
-      <passwordHash>#jbcrypt:$2a$10$16.kpNi/eM/rfTGFOayMtel2N6lR6oejQvb6HxXIHFrV3Nx2tnv.q</passwordHash>
+      <passwordHash>#jbcrypt:$2a$10$5obVkOfd.fy5toSjZFY7aukaeX6NwQRRsUVEVZBoWB4P3a5IOUDO2</passwordHash>
     </hudson.security.HudsonPrivateSecurityRealm_-Details>
     <hudson.tasks.Mailer_-UserProperty plugin="mailer@525.v2458b_d8a_1a_71">
       <emailAddress>pravin.puducherry@gmail.com</emailAddress>
@@ -53,5 +53,11 @@
         <tokenList/>
       </tokenStore>
     </jenkins.security.ApiTokenProperty>
+    <jenkins.security.LastGrantedAuthoritiesProperty>
+      <roles>
+        <string>authenticated</string>
+      </roles>
+      <timestamp>1766393633436</timestamp>
+    </jenkins.security.LastGrantedAuthoritiesProperty>
   </properties>
 </user>
