@@ -7,7 +7,7 @@ from faker import Faker
 fake = Faker()
 
 # --- CONFIGURATION ---
-NUM_ROWS = 1000
+NUM_ROWS = 100000
 # This path matches the volume map in your docker-compose.yml
 #OUTPUT_FILE = '/var/jenkins_home/workspace/shared_data/sales_data.csv'
 OUTPUT_FILE = '/opt/shared_data/sales_data.csv'
