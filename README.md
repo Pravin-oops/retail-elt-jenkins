@@ -1,4 +1,3 @@
-```markdown
 # 🛒 Retail ETL Project (v1.0)
 
 A containerized ETL (Extract, Transform, Load) solution designed to simulate a retail data pipeline. This project serves as a foundational exercise to demonstrate and refine Data Engineering skills using Oracle 19c and Docker, independent of enterprise infrastructure.
@@ -35,7 +34,6 @@ Clone the repository and spin up the infrastructure:
 git clone [https://github.com/Pravin-oops/retail-etl-project.git](https://github.com/Pravin-oops/retail-etl-project.git)
 cd retail-etl-project
 docker-compose up -d
-
 ```
 
 ### 3. Database Initialization
