@@ -1,5 +1,5 @@
 CREATE OR REPLACE PACKAGE pkg_etl_retail AS
-    -- This is the public procedure Jenkins will call
+    -- This is the public procedure Jenkins will call in future
     PROCEDURE load_daily_sales;
 END pkg_etl_retail;
 /
