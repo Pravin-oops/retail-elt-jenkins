@@ -1,8 +1,0 @@
-Started by user [8mha:////4CjuosyK6QqnjKVkqScEShcto7YZkUz5c53yqgdikXLZAAAAnR+LCAAAAAAAAP9b85aBtbiIQTGjNKU4P08vOT+vOD8nVc83PyU1x6OyILUoJzMv2y+/JJUBAhiZGBgqihhk0NSjKDWzXb3RdlLBUSYGJk8GtpzUvPSSDB8G5tKinBIGIZ+sxLJE/ZzEvHT94JKizLx0a6BxUmjGOUNodHsLgAw2oBn6pcWpRfoFRYllmXm5icUlqUUAqs+ZdscAAAA=[0mPravin
-Running as SYSTEM
-Building in workspace /var/jenkins_home/workspace/test-python
-[test-python] $ /bin/sh -xe /tmp/jenkins16424113107205032107.sh
-+ python3 --version
-/tmp/jenkins16424113107205032107.sh: 2: python3: not found
-Build step 'Execute shell' marked build as failure
-Finished: FAILURE

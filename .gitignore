@@ -1,2 +1,7 @@
 *.log
 **/builds/
+/data/
+jenkins_home/
+.env
+.DS_Store
+Thumbs.db
