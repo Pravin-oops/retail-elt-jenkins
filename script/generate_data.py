@@ -30,8 +30,10 @@ if USE_LOCAL_DIR:
 else:
     DATA_DIR = DOCKER_DIR
 
-# 4. Set Output File
-OUTPUT_FILE = os.path.join(DATA_DIR, 'sales_data.csv')
+# Format: sales_data_DDMMYYYY.csv (e.g., sales_data_01012026.csv)
+date_suffix = datetime.now().strftime("%d%m%Y")
+filename_dated = f'sales_data_{date_suffix}.csv'
+OUTPUT_FILE = os.path.join(DATA_DIR, filename_dated)
 
 # Ensure the directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -40,7 +42,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 fake = Faker()
 NUM_ROWS = 1000
 
-print(f"--- Starting Data Generation (V1.1) ---")
+print(f"--- Starting Data Generation (V2) ---")
 print(f"OS Detected: {'Windows' if IS_WINDOWS else 'Linux/Mac'}")
 print(f"Target Path: {OUTPUT_FILE}")  # <--- Verify this line!
 
