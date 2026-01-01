@@ -47,7 +47,7 @@ ORGANIZATION EXTERNAL (
         OPTIONALLY ENCLOSED BY '"'
         MISSING FIELD VALUES ARE NULL
     )
-    LOCATION ('sales_data.csv') -- This file must exist in your 'data' folder
+    LOCATION ('sales_data_placeholder.csv') -- This file must exist in your 'data' folder
 )
 REJECT LIMIT UNLIMITED;
 
@@ -93,8 +93,3 @@ CREATE TABLE fact_sales (
     CONSTRAINT fk_fact_prod FOREIGN KEY (prod_surrogate_key) REFERENCES dim_product(prod_surrogate_key),
     CONSTRAINT fk_fact_time FOREIGN KEY (time_id) REFERENCES dim_time(time_id)
 );
-
--- Create Indexes for Reporting Performance
-CREATE INDEX idx_fact_cust ON fact_sales(cust_surrogate_key);
-CREATE INDEX idx_fact_prod ON fact_sales(prod_surrogate_key);
-CREATE INDEX idx_fact_time ON fact_sales(time_id);
