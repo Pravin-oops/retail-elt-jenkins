@@ -1,77 +1,148 @@
-# 🛒 Retail ETL Project (v1.0)
+# 🛒 Retail ETL Project (v2.0)
 
-A containerized ETL (Extract, Transform, Load) solution designed to simulate a retail data pipeline. This project serves as a foundational exercise to demonstrate and refine Data Engineering skills using Oracle 19c and Docker, independent of enterprise infrastructure.
+**Version:** 2.0 (Stable)
+**Release Date:** January 2026
+**Architecture:** Decoupled ELT (Extract-Load-Transform) with Raw Vault
 
-## 🎯 Project Objective
-The primary goal of this initiative is to architect a "ground-up" data solution that handles messy, real-world data scenarios. It focuses on the mechanics of building a robust Star Schema and writing performant PL/SQL logic to enforce data quality standards.
+## 🚀 Overview
 
-## 🚀 Key Features
-* **Automated Data Generation:** A Python-based engine (`Faker`) that creates realistic "dirty" sales datasets (including missing categories and invalid dates) to test pipeline resilience.
-* **External Tables:** Implementation of Oracle `ORGANIZATION EXTERNAL` to interface directly with raw CSV files from the operating system, bridging the gap between file storage and database storage.
-* **Star Schema Architecture:** Transformation of flat, raw transactional data into a structured dimensional model (`FACT_SALES`, `DIM_CUSTOMER`, `DIM_PRODUCT`, `DIM_TIME`) optimized for analytics.
-* **Data Quality Logic:** A dedicated PL/SQL package (`pkg_etl_retail`) that acts as a gatekeeper, filtering invalid records and achieving a ~94% yield on high-volume inputs.
+This project is a robust data pipeline that generates synthetic retail sales data, securely archives it into a **Raw Vault** (history tracking), and transforms it into a **Star Schema** for analytics.
 
-## 🛠 Tech Stack
-* **Database:** Oracle Database 19c (Containerized via Docker)
-* **Scripting:** PL/SQL, Python 3.9
-* **Infrastructure:** Docker Compose
-* **Tools:** VS Code, SQL Developer, Git
+**Version 2.0 Major Upgrade:**
+Unlike V1 (which overwrote data daily), **V2.0 preserves history**. It uses a "Time Machine" architecture where every single record ever generated is saved in the vault, while the reporting tables are reset daily for fresh analysis.
 
-## 🔮 Future Roadmap (v2.0 & Beyond)
-This project is an evolving proof-of-concept. Planned improvements include:
-* **Data Archival Strategy:** Moving away from the current "truncate and load" pattern to a robust archiving system that backs up previous daily loads before processing new data.
-* **CI/CD Automation:** Integrating a Jenkins pipeline to automate the end-to-end workflow—triggering the Python generation script and PL/SQL package execution upon code commits.
-* **Advanced Error Logging:** Implementing a dedicated logging table to capture and audit specific row-level failures for better debugging.
+---
 
-## ⚡ Quick Start
+## 🌟 Key Features (New in v2.0)
 
-### 1. Prerequisite
-Ensure Docker and Git are installed.
+### 1. 🛡️ Raw Vault Architecture
 
-### 2. Environment Setup
-Clone the repository and spin up the infrastructure:
-```bash
-git clone [https://github.com/Pravin-oops/retail-etl-project.git](https://github.com/Pravin-oops/retail-etl-project.git)
-cd retail-etl-project
-docker-compose up -d
+* **Permanent History:** New `raw_sales_archive` table acts as a data lake, storing every row forever.
+* **Auditability:** Every row is tagged with a `batch_id`, `source_filename`, and `archived_at` timestamp.
+* **Safe Failures:** If the ETL logic crashes, the raw data is already safely secured in the Vault.
+
+### 2. 📅 Dynamic Date Targeting
+
+* **Smart Handshake:**
+* **Python** generates files with today's date: `sales_data_DDMMYYYY.csv`.
+* **Oracle PL/SQL** dynamically calculates `SYSDATE` to find and load that specific file.
+
+
+* **Conflict Prevention:** Oracle ignores old files (e.g., yesterday's data) residing in the same folder.
+
+### 3. 🔌 Environment Portability
+
+* **Write Once, Run Anywhere:** The Python generator now auto-detects if it is running on **Local Windows** or **Jenkins Docker**.
+* *Windows:* Uses local project path.
+* *Docker:* Uses `/data` volume mapping.
+
+
+
+---
+
+## 📂 Project Structure
+
+```text
+retail-etl-project/
+├── data/                        # CSV files (gitignored)
+├── script/
+│   └── generate_data.py         # Generates dated files (e.g., sales_data_02012026.csv)
+├── sql/
+│   ├── 00_archive_table_DDL.sql # [Run Once] Creates the Permanent Vault & Sequences
+│   ├── 01_setup_users.sql       # [Run Once] Creates RETAIL_DW user
+│   ├── 02_directory_creation.sql# [Run Once] Maps Oracle Directory to /data
+│   ├── 03_ddl_tables.sql        # [Daily] Resets Analysis Layer (Keeps Vault Safe)
+│   └── 04_plsql_pkg.sql         # [Logic] The Decoupled ETL Package
+├── docker-compose.yml           # Infrastructure definition
+├── dockerfile                   # Jenkins image customization
+└── README.md
+
 ```
 
-### 3. Database Initialization
+---
 
-Connect to the database (User: `SYSTEM`) and execute the user setup script:
+## ⚙️ Setup Instructions
+
+### 1. Initial Setup (Run Once)
+
+**A. Start Infrastructure**
+
+```bash
+docker-compose up -d
+
+```
+
+**B. Initialize Database (as SYSTEM)**
 
 ```sql
 @sql/01_setup_users.sql
+@sql/02_directory_creation.sql
+
 ```
 
-### 4. Run the Pipeline
+**C. Initialize Storage (as RETAIL_DW)**
+Create the permanent storage (Raw Vault).
 
-Connect as `RETAIL_DW` and execute the following steps:
-
-1. **Build Schema:** Run the DDL script.
 ```sql
-@sql/02_ddl_tables.sql
+@sql/00_archive_table_DDL.sql
+
 ```
 
+### 2. Daily Workflow (Simulation)
 
-2. **Generate Data:** Run the Python generator.
+To simulate a daily run, follow these steps in order:
+
+**Step A: Reset the Analysis Layer**
+Wipes the dashboard tables (Fact/Dim) but **keeps the history safe**.
+
+```sql
+@sql/03_ddl_tables.sql
+
+```
+
+**Step B: Generate Today's Data**
+
 ```bash
-python scripts/generate_data.py
+# Creates sales_data_DDMMYYYY.csv in the data/ folder
+python script/generate_data.py
+
 ```
 
+**Step C: Run the Pipeline**
+Executes the `load_daily_sales` procedure (Archive -> Transform -> Load).
 
-3. **Run ETL:** Execute the PL/SQL package.
 ```sql
 SET SERVEROUTPUT ON;
 BEGIN
     pkg_etl_retail.load_daily_sales;
 END;
 /
+
 ```
 
-## 📊 Results
+---
 
-* **Input:** Raw CSV containing simulated transactional noise (approx 1000+ rows).
-* **Process:** Validation of business rules and calculation of derived metrics (Revenue).
-* **Output:** Clean, referentially intact data loaded into `FACT_SALES`.
-* **Efficiency:** Initial benchmarks show a **94% data yield**, successfully filtering invalid category data while preserving valid transactions.
+## 📊 Verification
+
+Run these queries to verify V2 logic:
+
+```sql
+-- 1. Check the Vault (Should grow every day)
+SELECT batch_id, source_file, count(*) FROM raw_sales_archive GROUP BY batch_id, source_file;
+
+-- 2. Check the Report (Should only show today's data)
+SELECT count(*) FROM fact_sales;
+
+```
+
+---
+
+## 🔮 Roadmap (v3.0)
+
+* [ ] **CI/CD Automation:** Jenkins Pipeline to automate the daily run.
+* [ ] **Airflow Orchestration:** Migrating workflow to Apache Airflow DAGs.
+* [ ] **Advanced Error Logging:** Capture rejected rows in an `ERROR_LOG` table instead of skipping them.
+
+---
+
+**Author:** Pravin
