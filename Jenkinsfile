@@ -7,17 +7,28 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('0. Sync Local Code') {
             steps {
-                checkout scm
+                script {
+                    echo "--- Syncing files from Local Laptop (/project) ---"
+                    cleanWs()
+                    
+                    // FIX: Use 'cp' instead of 'rsync'
+                    // We explicitly copy the folders we need to avoid errors
+                    sh 'cp -r /project/script .'
+                    sh 'cp -r /project/sql .'
+                    
+                    // Verify files arrived
+                    sh 'ls -R' 
+                }
             }
         }
 
         stage('1. Generate Data') {
             steps {
                 script {
-                    echo "--- Generating Data for \${new Date()} ---"
-                    // Use the Full Path to the Virtual Env Python
+                    echo "--- Generating Data ---"
+                    // Use Absolute Path to Python
                     sh '/opt/venv/bin/python3 script/generate_data.py'
                 }
             }
@@ -27,7 +38,7 @@ pipeline {
             steps {
                 script {
                     echo "--- Triggering Oracle PL/SQL ---"
-                    // Use the Full Path to the Virtual Env Python
+                    // Use Absolute Path to Python
                     sh '/opt/venv/bin/python3 script/trigger_etl.py'
                 }
             }
