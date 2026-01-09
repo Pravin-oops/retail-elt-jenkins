@@ -1,10 +1,10 @@
 pipeline {
     agent any
 
-    // SCHEDULE: 03:30 AM UTC = 09:00 AM IST
-    triggers {
-        cron('30 3 * * *') 
-    }
+    // --------------------------------------------------------
+    // SCHEDULE REMOVED
+    // This pipeline is now "On-Demand" only.
+    // --------------------------------------------------------
 
     stages {
         stage('0. Sync Local Code') {
@@ -13,12 +13,11 @@ pipeline {
                     echo "--- Syncing files from Local Laptop (/project) ---"
                     cleanWs()
                     
-                    // FIX: Use 'cp' instead of 'rsync'
-                    // We explicitly copy the folders we need to avoid errors
+                    // Copy folders from mounted drive to workspace
                     sh 'cp -r /project/script .'
                     sh 'cp -r /project/sql .'
                     
-                    // Verify files arrived
+                    // Verify files
                     sh 'ls -R' 
                 }
             }
