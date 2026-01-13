@@ -6,37 +6,41 @@ services:
     image: gvenzl/oracle-xe:latest
     container_name: retail_db
     environment:
-      - ORACLE_PASSWORD=AdminPassword123  # You will use this to log in
+      - ORACLE_PASSWORD=AdminPassword123
       - ORACLE_DATABASE=xepdb1
     ports:
       - "1521:1521"
     volumes:
-      # Maps your laptop's 'data' folder to the container's input folder
+      # 1. Input Data (Already there)
       - ./data:/data
+      # 2. NEW: Persist Database Files (Users, Tables, Data)
+      - oracle_data:/opt/oracle/oradata
     networks:
       - etl-network
     restart: unless-stopped
 
-  # --- Service 2: The Automation Server ---
+  # --- Service 2: Jenkins ---
   jenkins:
     build: .
     container_name: retail_jenkins
-    user: root # Run as root to allow installing SQLPlus later easily
+    user: root
     ports:
-      - "8080:8080"   # The Web UI port
+      - "8080:8080"
       - "50000:50000"
     volumes:
-      # Persist Jenkins data so you don't lose your setup
       - ./jenkins_home:/var/jenkins_home
-      - ./data:/data  # Shared data folder for ETL files
-      # --- NEW LINE: Map your Project Root to /project ---
+      - ./data:/data
       - .:/project
     networks:
       - etl-network
     depends_on:
-      - oracle-db # Wait for DB to start before starting Jenkins
+      - oracle-db
 
-# --- The Bridge ---
+# --- Define the Volume ---
+volumes:
+  oracle_data:
+    driver: local
+
 networks:
   etl-network:
     driver: bridge
