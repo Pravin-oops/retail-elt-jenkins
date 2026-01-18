@@ -38,6 +38,7 @@ BEGIN
                 batch_id    NUMBER,
                 archived_at TIMESTAMP DEFAULT SYSTIMESTAMP,
                 source_file VARCHAR2(100)
+                CONSTRAINT pk_raw_archive PRIMARY KEY (batch_id, trans_id)
             )';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_archive_batch ON raw_sales_archive(batch_id)';
     END IF;
