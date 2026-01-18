@@ -1,11 +1,9 @@
 --------------------------------------------------------
 -- PERMANENT ARCHIVE SETUP (Run Once)
--- Purpose: Creates the "Forever Storage" for raw data.
--- WARNING: Do not drop these objects in daily scripts!
+-- Purpose: Creates "Forever Storage" for Archives & Errors.
 --------------------------------------------------------
 
--- 1. Batch ID Sequence (Tracks loads over time)
--- We check if it exists to avoid errors, or just run this script once.
+-- 1. Batch ID Sequence
 DECLARE
     v_count NUMBER;
 BEGIN
@@ -17,7 +15,6 @@ END;
 /
 
 -- 2. The Archive Table (The Raw Vault)
--- Holds every row ever received. never deleted.
 DECLARE
     v_count NUMBER;
 BEGIN
@@ -37,11 +34,28 @@ BEGIN
                 -- Audit Columns
                 batch_id    NUMBER,
                 archived_at TIMESTAMP DEFAULT SYSTIMESTAMP,
-                source_file VARCHAR2(100)
+                source_file VARCHAR2(100),
                 CONSTRAINT pk_raw_archive PRIMARY KEY (batch_id, trans_id)
             )';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_archive_batch ON raw_sales_archive(batch_id)';
     END IF;
 END;
 /
 
+-- 3. The Reject Table (Error History) - MOVED HERE
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT count(*) INTO v_count FROM user_tables WHERE table_name = 'ERR_SALES_REJECTS';
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE '
+            CREATE TABLE err_sales_rejects (
+                reject_id   NUMBER GENERATED ALWAYS AS IDENTITY,
+                batch_id    NUMBER,
+                trans_id    VARCHAR2(50),
+                amount      NUMBER,
+                reason      VARCHAR2(255),
+                rejected_at TIMESTAMP DEFAULT SYSTIMESTAMP
+            )';
+    END IF;
+END;
+/

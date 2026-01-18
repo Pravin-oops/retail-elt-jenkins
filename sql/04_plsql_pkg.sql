@@ -1,6 +1,5 @@
 --------------------------------------------------------
--- PACKAGE SPECIFICATION (The Public Interface)
--- Defines what can be called from outside.
+-- PACKAGE SPECIFICATION
 --------------------------------------------------------
 CREATE OR REPLACE PACKAGE pkg_etl_retail AS
     PROCEDURE load_daily_sales;
@@ -8,41 +7,32 @@ END pkg_etl_retail;
 /
 
 --------------------------------------------------------
--- PACKAGE BODY (The Implementation)
--- Contains the actual logic and private helper functions.
+-- PACKAGE BODY
 --------------------------------------------------------
 CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
 
     -- ===============================================================
-    -- PRIVATE HELPER: ARCHIVE STEP (The "Vault" Logic)
-    -- Purpose: 1. Point to today's file. 2. Copy raw data to Archive.
-    -- Returns: The new Batch ID generated for this run.
-    -- Note: Not declared in Spec, so it's hidden from outside users.
+    -- PRIVATE FUNCTION: ARCHIVE_RAW_DATA
     -- ===============================================================
     FUNCTION archive_raw_data RETURN NUMBER IS
         v_batch_id     NUMBER;
         v_dynamic_file VARCHAR2(100);
         v_count        NUMBER;
     BEGIN
-        -- 1. Generate New Batch ID
         v_batch_id := seq_batch_id.NEXTVAL;
-        
-        -- 2. Calculate Filename (e.g., sales_data_01012026.csv)
         v_dynamic_file := 'sales_data_' || TO_CHAR(SYSDATE, 'DDMMYYYY') || '.csv';
         
         DBMS_OUTPUT.PUT_LINE('--- STEP 1: ARCHIVING (Batch ' || v_batch_id || ') ---');
         DBMS_OUTPUT.PUT_LINE('Target File: ' || v_dynamic_file);
 
-        -- 3. Point External Table to File
         BEGIN
             EXECUTE IMMEDIATE 'ALTER TABLE ext_sales_data LOCATION (''' || v_dynamic_file || ''')';
         EXCEPTION
             WHEN OTHERS THEN
-                DBMS_OUTPUT.PUT_LINE('Error: Could not find file ' || v_dynamic_file);
+                DBMS_OUTPUT.PUT_LINE('❌ Error: Could not find file ' || v_dynamic_file);
                 RAISE;
         END;
 
-        -- 4. "Blind Copy" to Archive (The Backup)
         INSERT INTO raw_sales_archive (
             trans_id, cust_id, cust_name, prod_id, prod_name, 
             category, price, quantity, txn_date, 
@@ -63,12 +53,9 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
 
 
     -- ===============================================================
-    -- PRIVATE HELPER: ETL STEP (The "Star Schema" Logic)
-    -- Purpose: Read from Archive (NOT file) and load Dimensions/Facts.
-    -- Input:   The Batch ID to process.
+    -- PRIVATE PROCEDURE: LOAD_STAR_SCHEMA
     -- ===============================================================
     PROCEDURE load_star_schema(p_batch_id NUMBER) IS
-        -- We fetch from ARCHIVE now, not External Table
         CURSOR c_raw_data IS
             SELECT trans_id, cust_id, cust_name, prod_id, prod_name, category, 
                    TO_NUMBER(price) as price, 
@@ -76,17 +63,30 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                    TO_DATE(txn_date, 'YYYY-MM-DD') as txn_date
             FROM raw_sales_archive
             WHERE batch_id = p_batch_id
-              AND category IS NOT NULL; -- Transformation Rule: Filter bad data
+              AND category IS NOT NULL;
               
-        v_cust_key NUMBER;
-        v_prod_key NUMBER;
-        v_time_id  DATE;
+        v_cust_key     NUMBER;
+        v_prod_key     NUMBER;
+        v_time_id      DATE;
+        v_amount       NUMBER;
+        v_loaded_cnt   NUMBER := 0;
+        v_rejected_cnt NUMBER := 0;
+        
+        -- FIX: Variable to hold the error message
+        v_err_msg      VARCHAR2(500); 
     BEGIN
         DBMS_OUTPUT.PUT_LINE('--- STEP 2: TRANSFORM and LOAD ---');
         
         FOR r IN c_raw_data LOOP
             BEGIN
-                -- (A) Dimension: Customer
+                -- 1. CALCULATE AMOUNT
+                v_amount := r.price * r.quantity;
+
+                -- ---------------------------------------------------
+                -- A. DIMENSION HANDLING
+                -- ---------------------------------------------------
+                
+                -- Customer
                 BEGIN
                     SELECT cust_surrogate_key INTO v_cust_key FROM dim_customer
                     WHERE cust_original_id = r.cust_id;
@@ -97,7 +97,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                         VALUES (v_cust_key, r.cust_id, r.cust_name);
                 END;
 
-                -- (B) Dimension: Product
+                -- Product
                 BEGIN
                     SELECT prod_surrogate_key INTO v_prod_key FROM dim_product
                     WHERE prod_original_id = r.prod_id;
@@ -108,7 +108,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                         VALUES (v_prod_key, r.prod_id, r.prod_name, r.category);
                 END;
 
-                -- (C) Dimension: Time
+                -- Time
                 v_time_id := r.txn_date;
                 MERGE INTO dim_time d USING (SELECT v_time_id AS t_date FROM dual) s
                 ON (d.time_id = s.t_date)
@@ -117,41 +117,52 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                     VALUES (v_time_id, TO_CHAR(v_time_id, 'DAY'), TO_CHAR(v_time_id, 'MONTH'), 
                             TO_NUMBER(TO_CHAR(v_time_id, 'YYYY')), TO_NUMBER(TO_CHAR(v_time_id, 'Q')));
 
-                -- (D) Fact Table
+                -- ---------------------------------------------------
+                -- B. FACT LOAD
+                -- ---------------------------------------------------
                 INSERT INTO fact_sales (
                     sales_id, cust_surrogate_key, prod_surrogate_key, time_id, quantity, amount, txn_date
                 ) VALUES (
                     seq_sales_id.NEXTVAL, v_cust_key, v_prod_key, v_time_id, 
-                    r.quantity, (r.price * r.quantity), r.txn_date
+                    r.quantity, v_amount, r.txn_date
                 );
+                
+                v_loaded_cnt := v_loaded_cnt + 1;
+
             EXCEPTION
+                -- ---------------------------------------------------
+                -- C. SYSTEM ERROR LOGGING
+                -- ---------------------------------------------------
                 WHEN OTHERS THEN
-                    NULL; -- Logic for error logging (V3) goes here
+                    -- FIX: Capture SQLERRM into a variable first
+                    v_err_msg := SUBSTR(SQLERRM, 1, 200);
+                    
+                    DBMS_OUTPUT.PUT_LINE('❌ SYSTEM ERROR on Trans ' || r.trans_id || ': ' || v_err_msg);
+                    
+                    INSERT INTO err_sales_rejects (batch_id, trans_id, amount, reason)
+                    VALUES (p_batch_id, r.trans_id, v_amount, 'System Error: ' || v_err_msg);
+                    
+                    v_rejected_cnt := v_rejected_cnt + 1;
             END;
         END LOOP;
         
-        DBMS_OUTPUT.PUT_LINE('✅ Star Schema Loaded for Batch ' || p_batch_id);
+        DBMS_OUTPUT.PUT_LINE('📊 SUMMARY: Loaded ' || v_loaded_cnt || ' | Rejected ' || v_rejected_cnt);
         COMMIT;
     END load_star_schema;
 
 
     -- ===============================================================
-    -- PUBLIC MAIN: THE ORCHESTRATOR
-    -- Purpose: Runs the full pipeline in order.
+    -- PUBLIC MAIN
     -- ===============================================================
     PROCEDURE load_daily_sales IS
         v_current_batch NUMBER;
     BEGIN
-        -- 1. Run Backup Logic
         v_current_batch := archive_raw_data();
-        
-        -- 2. Run ETL Logic (Using the data we just backed up)
         load_star_schema(v_current_batch);
-        
         DBMS_OUTPUT.PUT_LINE('--- JOB COMPLETE ---');
     EXCEPTION
         WHEN OTHERS THEN
-            DBMS_OUTPUT.PUT_LINE('❌ Job Failed: ' || SQLERRM);
+            DBMS_OUTPUT.PUT_LINE('❌ Fatal Job Failure: ' || SQLERRM);
             ROLLBACK;
             RAISE;
     END load_daily_sales;
