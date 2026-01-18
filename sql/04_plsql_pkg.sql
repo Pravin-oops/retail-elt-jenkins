@@ -62,8 +62,8 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                    TO_NUMBER(quantity) as quantity, 
                    TO_DATE(txn_date, 'YYYY-MM-DD') as txn_date
             FROM raw_sales_archive
-            WHERE batch_id = p_batch_id
-              AND category IS NOT NULL;
+            WHERE batch_id = p_batch_id;
+            -- REMOVED "AND category IS NOT NULL" so we can catch them manually!
               
         v_cust_key     NUMBER;
         v_prod_key     NUMBER;
@@ -71,15 +71,26 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
         v_amount       NUMBER;
         v_loaded_cnt   NUMBER := 0;
         v_rejected_cnt NUMBER := 0;
-        
-        -- FIX: Variable to hold the error message
-        v_err_msg      VARCHAR2(500); 
+        v_err_msg      VARCHAR2(500);
     BEGIN
         DBMS_OUTPUT.PUT_LINE('--- STEP 2: TRANSFORM and LOAD ---');
         
         FOR r IN c_raw_data LOOP
             BEGIN
-                -- 1. CALCULATE AMOUNT
+                -- 1. BUSINESS LOGIC CHECK: Missing Category
+                IF r.category IS NULL THEN
+                     -- A. Log to Console
+                    DBMS_OUTPUT.PUT_LINE('⚠️ REJECT: Trans ' || r.trans_id || ' (Missing Category)');
+                    
+                    -- B. Insert into Reject Table
+                    INSERT INTO err_sales_rejects (batch_id, trans_id, amount, reason)
+                    VALUES (p_batch_id, r.trans_id, (r.price * r.quantity), 'Data Quality: Missing Category');
+                    
+                    v_rejected_cnt := v_rejected_cnt + 1;
+                    CONTINUE; -- Skip this row
+                END IF;
+
+                -- 2. CALCULATE AMOUNT
                 v_amount := r.price * r.quantity;
 
                 -- ---------------------------------------------------
@@ -134,9 +145,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_etl_retail AS
                 -- C. SYSTEM ERROR LOGGING
                 -- ---------------------------------------------------
                 WHEN OTHERS THEN
-                    -- FIX: Capture SQLERRM into a variable first
                     v_err_msg := SUBSTR(SQLERRM, 1, 200);
-                    
                     DBMS_OUTPUT.PUT_LINE('❌ SYSTEM ERROR on Trans ' || r.trans_id || ': ' || v_err_msg);
                     
                     INSERT INTO err_sales_rejects (batch_id, trans_id, amount, reason)
