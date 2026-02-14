@@ -1,0 +1,15 @@
+pipeline {
+    agent any
+
+    // manual trigeer run only once
+
+    stages {
+        stage('0.Setting up DB user by SYSDBA') {
+            steps {
+                script {
+                    echo "--- Setting up user retail_dw ---"
+                }
+            }
+        }
+    }
+}
