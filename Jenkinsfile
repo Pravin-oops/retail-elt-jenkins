@@ -20,7 +20,7 @@ pipeline {
                 script {
                     echo "--- 🧹 Wiping Analysis Layer (Avoiding Duplicates) ---"
                     // RUNS THE NEW SCRIPT to execute 05_ddl_tables.sql
-                    sh '/opt/venv/bin/python3 script/data_truncate.py sql/05_ddl_tables.sql'
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/05_ddl_tables.sql'
                 }
             }
         }

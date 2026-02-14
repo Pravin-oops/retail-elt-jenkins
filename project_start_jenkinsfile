@@ -1,15 +1,94 @@
 pipeline {
     agent any
 
-    // manual trigeer run only once
-
     stages {
-        stage('0.Setting up DB user by SYSDBA') {
+        // --- PREPARATION ---
+        stage('0. Sync Code') {
             steps {
                 script {
-                    echo "--- Setting up user retail_dw ---"
+                    echo "--- 🔄 Syncing Scripts ---"
+                    cleanWs()
+                    sh 'cp -r /project/script .'
+                    sh 'cp -r /project/sql .'
                 }
             }
+        }
+
+        // --- STEP 1: ADMIN TASKS (BOOTSTRAP) ---
+        stage('1. Create User (As SYSDBA)') {
+            environment {
+                // Override credentials to act as SYSTEM Admin
+                DB_USER = 'SYSTEM'
+                DB_PASS = 'AdminPassword123' 
+            }
+            steps {
+                script {
+                    echo "--- 👤 Creating RETAIL_DW User ---"
+                    // Runs 01_setup_users.sql
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/01_setup_users.sql'
+                }
+            }
+        }
+
+        // --- STEP 2: USER TASK (DIRECTORY) ---
+        stage('2. Create Directory (As RETAIL_DW)') {
+            environment {
+                // Switch to the newly created User
+                DB_USER = 'RETAIL_DW'
+                DB_PASS = 'RetailPass123'
+            }
+            steps {
+                script {
+                    echo "--- 📂 Creating Oracle Directory Object ---"
+                    // Runs 02_directory_creation.sql
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/02_directory_creation.sql'
+                }
+            }
+        }
+
+        // --- STEP 3: ADMIN TASK (GRANTS) ---
+        stage('3. Grant Dir Access (As SYSDBA)') {
+            environment {
+                // Switch back to Admin to grant rights on the new directory
+                DB_USER = 'SYSTEM'
+                DB_PASS = 'AdminPassword123'
+            }
+            steps {
+                script {
+                    echo "--- 🔐 Granting Read/Write on Directory ---"
+                    // Runs 03_grant_to_dir_sys.sql
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/03_grant_to_dir_sys.sql'
+                }
+            }
+        }
+
+        // --- STEP 4: USER TASKS (SCHEMA) ---
+        stage('4. Build Schema (As RETAIL_DW)') {
+            environment {
+                // Switch back to App User for final setup
+                DB_USER = 'RETAIL_DW'
+                DB_PASS = 'RetailPass123'
+            }
+            steps {
+                script {
+                    echo "--- 🏗️ Building Tables & Packages ---"
+                    // 04: Archive Tables
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/04_archive_table_DDL.sql'
+                    // 05: Fact/Dim Tables
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/05_ddl_tables.sql'
+                    // 06: PL/SQL Logic
+                    sh '/opt/venv/bin/python3 script/sql_runner.py sql/06_plsql_pkg.sql'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ PROJECT SETUP COMPLETE! You can now run the Daily ETL Job."
+        }
+        failure {
+            echo "❌ Setup Failed. Check logs for SQL errors."
         }
     }
 }

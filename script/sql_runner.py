@@ -3,12 +3,13 @@ import os
 import sys
 
 # 1. Config
-DB_USER = 'RETAIL_DW'
-DB_PASS = 'RetailPass123'
-DB_DSN = 'oracle-db:1521/xepdb1' 
+# Now we read from Environment Variables, with fallbacks for local testing
+DB_USER = os.getenv('DB_USER', 'RETAIL_DW')
+DB_PASS = os.getenv('DB_PASS', 'RetailPass123')
+DB_DSN  = os.getenv('ORACLE_DSN', 'oracle-db:1521/xepdb1')
 
 if len(sys.argv) < 2:
-    print("❌ Usage: python data_truncate.py <path_to_sql_file>")
+    print("❌ Usage: python sql_runner.py <path_to_sql_file>")
     exit(1)
 
 sql_file_path = sys.argv[1]
