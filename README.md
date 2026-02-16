@@ -1,157 +1,164 @@
+# 🛒 Retail ELT Pipeline (Jenkins Edition)
 
----
-
-# 🛒 Retail ETL Project (v3.0)
-
-**Version:** 3.0 (Jenkins CI/CD + Zero Data Loss)
-**Release Date:** January 2026
-**Architecture:** Automated Pipeline (Jenkins) + Oracle ELT + Persistent Error Logging
+**Version:** 4.0 (Self-Bootstrapping Infrastructure)
+**Architecture:** Jenkins CI/CD + Oracle XE + Docker
+**Methodology:** ELT (Extract, Load, Transform) with Zero Data Loss
 
 ## 🚀 Overview
 
-This project represents the final evolution of the Retail ETL Pipeline. It implements a production-grade **CI/CD Workflow** that guarantees **Zero Data Loss**.
+This project implements a production-grade **Retail Data Warehouse** pipeline orchestrated by **Jenkins**. It features a **"Zero-Touch" Initialization** workflow, where the entire database infrastructure is provisioned automatically via code.
 
-**Version 3.0 Key Features:**
-
-* **Automated Orchestration:** A containerized Jenkins pipeline manages the entire lifecycle (Code Sync → Data Generation → ETL Execution).
-* **Zero Data Loss Architecture:** * **Raw Vault:** 100% of incoming data is archived immediately before processing.
-* **Error Trapping:** Invalid rows (e.g., Missing Categories, System Errors) are captured in a persistent `ERR_SALES_REJECTS` table instead of being lost.
-
-
-* **Idempotency:** A smart schema reset utility (`data_truncate.py`) ensures the pipeline can be re-run safely without creating duplicate data in the analysis layer.
+The system uses **Docker** to spin up Jenkins and Oracle XE, and employs a custom Python wrapper (`sql_runner.py`) to manage complex database deployments, switching dynamically between Admin (`SYSTEM`) and Application (`RETAIL_DW`) users.
 
 ---
 
-## 🏗️ Architecture Flow
+## 📋 Prerequisites
 
-1. **Trigger:** Manual Build in Jenkins (One-Click Deployment).
-2. **Sync (Stage 0):** Jenkins pulls the latest Python & SQL code from the local development environment.
-3. **Reset (Stage 1):** Executes `data_truncate.py` to wipe the Analysis Layer (`fact_sales`, dimensions) while strictly preserving the **Raw Vault** and **Error History**.
-4. **Generate (Stage 2):** Python script generates synthetic retail data (including 5% "Bad Data" to test error handling).
-5. **Process (Stage 3):** Oracle PL/SQL Package (`pkg_etl_retail`):
-* **Archive:** Copies every row to `RAW_SALES_ARCHIVE` (The Time Machine).
-* **Validate:** Filters out rows with missing categories or data quality issues.
-* **Load:** Inserts valid rows into the Star Schema (`FACT_SALES`).
-* **Reject:** Inserts invalid rows into `ERR_SALES_REJECTS` for auditing.
-
-
+* **Docker Desktop** (Running and configured)
+* **Git** (To clone the repository)
+* **Java Options:** The `docker-compose.yml` is configured to allow local Git checkouts.
 
 ---
 
-## 📂 Project Structure
+## 🛠️ Installation & Setup
+
+### 1. Project Structure
+
+Ensure your repository matches this structure. This is critical for the Jenkins pipelines to find the scripts.
 
 ```text
-retail-etl-jenkins/
-├── data/                        # Shared Volume: CSV files land here
+retail-elt-jenkins/
 ├── script/
-│   ├── generate_data.py         # [Auto] Generates data (95% Valid / 5% Invalid)
-│   ├── trigger_etl.py           # [Auto] Python bridge to trigger PL/SQL
-│   └── data_truncate.py         # [Util] Smart SQL Runner to reset schema safely
+│   ├── generate_data.py         # Data Generator (Python)
+│   ├── trigger_etl.py           # ETL Trigger (Python)
+│   └── sql_runner.py            # Universal SQL Executor (Renamed from data_truncate.py)
 ├── sql/
-│   ├── 00_archive_table_DDL.sql # [Run Once] Creates PERMANENT Vault & Error Tables
-│   ├── 01_setup_users.sql       # [Run Once] Creates RETAIL_DW user
-│   ├── 02_directory_creation.sql# [Run Once] Maps /data volume
-│   ├── 03_ddl_tables.sql        # [Daily] Resets Fact/Dim tables (Analysis Layer)
-│   └── 04_plsql_pkg.sql         # [Logic] Main ETL with Error Handling logic
-├── Jenkinsfile                  # [Pipeline] Defines the 4-Stage CI/CD Flow
-├── docker-compose.yml           # [Infra] Services: Oracle XE + Jenkins
-├── dockerfile                   # [Infra] Custom Jenkins Image (w/ Python & OracleDB)
-└── README.md
+│   ├── 01_setup_users.sql       # [Admin] Create User
+│   ├── 02_directory_creation.sql# [App] Create Directory
+│   ├── 03_grant_to_dir_sys.sql  # [Admin] Grant Permissions
+│   ├── 04_archive_table_DDL.sql # [App] Create Archive/Error Tables
+│   ├── 05_ddl_tables.sql        # [App] Reset Fact/Dim Tables
+│   └── 06_plsql_pkg.sql         # [App] ETL Logic Package
+├── Jenkinsfile                  # [Daily] Main ETL Pipeline
+├── project_start_jenkinsfile    # [Run Once] Infrastructure Setup Pipeline
+├── docker-compose.yml           # Infrastructure Config
+└── Dockerfile                   # Custom Jenkins Agent
 
 ```
 
----
+### 2. Build and Launch
 
-## ⚙️ Setup Instructions
-
-### 1. Infrastructure Setup
-
-Start the containerized environment (Oracle Database + Jenkins Server).
+Run the following command to build the custom Jenkins image (with Python & Oracle drivers) and start the database.
 
 ```bash
 docker-compose up -d --build
+
 ```
 
-* **Oracle DB:** Port `1521` (Persistent Data in `oracle_data` volume)
-* **Jenkins:** Port `8080` (Persistent Home in `jenkins_home` folder)
+*Wait about 2-3 minutes for Jenkins to start and the Oracle Database to initialize.*
 
-### 2. Database Initialization (Run Once)
+### 3. Unlock Jenkins
 
-You must initialize the system and permanent storage tables.
-
-**A. System Setup (Run as SYSTEM)**
-
-```sql
-@sql/01_setup_users.sql
-@sql/02_directory_creation.sql
-```
-
-**B. Permanent Storage Setup (Run as RETAIL_DW)**
-*Crucial: This creates the tables that must never be dropped (Vault & Errors).*
-
-```sql
-@sql/00_archive_table_DDL.sql
-```
-
-**C. Application Setup (Run as RETAIL_DW)**
-
-```sql
-@sql/03_ddl_tables.sql
-@sql/04_plsql_pkg.sql
-```
-
----
-
-## 🤖 Jenkins Configuration
-
-1. **Unlock Jenkins:** Retrieve the initial password:
+1. Access Jenkins at [http://localhost:8080](https://www.google.com/search?q=http://localhost:8080).
+2. Retrieve the initial admin password:
 ```bash
 docker exec retail_jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
 ```
 
 
-2. **Create Job:** New Item -> Pipeline -> Name: `Retail-ETL-Pipeline`.
-3. **Pipeline Script:** Copy content from `Jenkinsfile` in your project folder.
-4. **Run:** Click **Build Now**.
+3. Install "Suggested Plugins" and create your Admin user.
 
 ---
 
-## 📊 Validation & Auditing
+## 🤖 Pipeline Configuration
 
-Run these queries in your SQL Client to verify the pipeline's logic.
+This project requires **two separate Jenkins Jobs** to manage the lifecycle.
 
-### 1. Verify "Zero Data Loss" Split
+### Job 1: Infrastructure Initialization (Run Once)
 
-Confirm that the total rows generated match the sum of Valid + Rejected rows.
+**Job Name:** `Retail-Project-Initialize`
+**Type:** Pipeline
 
-```sql
-SELECT 
-    (SELECT count(*) FROM fact_sales) AS "Valid Rows (Analysis)",
-    (SELECT count(*) FROM err_sales_rejects) AS "Rejected Rows (Audit)",
-    (SELECT count(*) FROM raw_sales_archive WHERE batch_id = (SELECT max(batch_id) FROM raw_sales_archive)) AS "Total Vault Rows"
-FROM dual;
-```
+This job bootstraps the database from scratch. It creates the user, maps the Docker volume to an Oracle Directory, and deploys the schema.
 
-### 2. Analyze Rejections
+* **Definition:** Pipeline script from SCM
+* **SCM:** Git
+* **Repository URL:** `file:///project`
+* **Script Path:** `project_start_jenkinsfile`
+* **Action:** Click **Build Now**.
+* *Result:* All stages (User, Directory, Grants, Schema) should pass successfully.
 
-Check the `ERR_SALES_REJECTS` table to understand why data was excluded from the report.
 
-```sql
-SELECT reason, count(*) 
-FROM err_sales_rejects 
-GROUP BY reason;
-```
 
-*Expected Output:* `Data Quality: Missing Category` (approx 50 rows).
+### Job 2: Daily ETL Run (Recurring)
+
+**Job Name:** `Retail-ETL-Daily`
+**Type:** Pipeline
+
+This is the standard recurring data pipeline.
+
+* **Definition:** Pipeline script from SCM
+* **SCM:** Git
+* **Repository URL:** `file:///project`
+* **Script Path:** `Jenkinsfile`
+* **Action:** Click **Build Now**.
+* **Reset:** Truncates analysis tables (Fact/Dim) via `sql_runner.py`.
+* **Generate:** Python script creates `sales_data.csv` with 1000 rows (5% invalid).
+* **Load:** Triggers `pkg_etl_retail.load_daily_sales` to Archive, Validate, and Load data.
+
+
 
 ---
 
-## 🔮 Roadmap (Next Phase)
+## 📊 Verification
 
-* [ ] **Apache Airflow:** Migrate orchestration to Airflow DAGs for complex dependency management (New repository).
-* [ ] **Email Alerts:** Configure notification triggers for high rejection rates.
+Connect to the Oracle Database to verify the data load.
+
+**Connection Details:**
+
+* **Host:** `localhost`
+* **Port:** `1521`
+* **Service Name:** `xepdb1`
+* **User:** `RETAIL_DW`
+* **Password:** `RetailPass123`
+
+**Validation Queries:**
+
+```sql
+-- 1. Check Valid Sales (The Star Schema)
+SELECT * FROM FACT_SALES;
+
+-- 2. Check Rejected Data (The Audit Trail)
+-- You should see rows with "Data Quality: Missing Category"
+SELECT * FROM ERR_SALES_REJECTS;
+
+-- 3. Check Raw History (The Zero Data Loss Vault)
+-- Contains 100% of the generated data
+SELECT * FROM RAW_SALES_ARCHIVE;
+
+```
+
+---
+
+## 🔧 Key Technical Features
+
+### 1. Universal SQL Runner (`script/sql_runner.py`)
+
+A custom Python utility that replaces manual SQL*Plus interaction. It:
+
+* Parses complex SQL files and PL/SQL blocks.
+* Handles delimiters (`/`) automatically.
+* **Environment Aware:** Uses `DB_USER` env var to switch between `SYSTEM` and `RETAIL_DW` credentials dynamically during the pipeline execution.
+
+### 2. Zero Data Loss Architecture
+
+Every single row generated is first copied to `RAW_SALES_ARCHIVE` before any transformation occurs. This allows for full replayability and auditing.
+
+### 3. In-Database Transformation
+
+We use **PL/SQL Stored Procedures** (`pkg_etl_retail`) to handle business logic. This is highly efficient as data never leaves the database engine during transformation.
 
 ---
 
 **Author:** Pravin
-**Contact:** pravin.puducherry@gmail.com
